@@ -1,5 +1,8 @@
-# This program is a chatbot. The algorithm implemented is modelled after the
-# ELIZA/DOCTOR script originally developed by Weizenbaum in the 1960s.
+# This program is an implementation of a classic chatbot. The algorithm implemented
+# is modelled after the Eliza script originally developed by Weizenbaum in the 1960s.
+# The user is initially prompted for an input phrase. A statement that is meant to convey
+# understanding to the user is reflected back by means of an algorithmic transformation
+# on the input string.
 #
 # CISC 352 Assignment 1
 # Sean Nesdoly 10135490
@@ -7,7 +10,7 @@
 
 import re # regular expressions
 import random
-import argparse
+import argparse # command line arguments
 
 # set optional argument for "terminal-mode"
 # this flag determines whether user input is read from a file or from stdin
@@ -269,6 +272,7 @@ def analyze(statement):
             return response.format(*[reflect(g) for g in match.groups()])
 
 
+
 def main():
     print "Hello. How are you feeling today?"
 
@@ -281,7 +285,7 @@ def main():
             if statement == "quit":
                 break
     else: # parse user input from file
-        human_script = open('./human_script.txt', 'r')
+        human_script = open('human_script.txt', 'r')
 
         # read the file one line at a time, applying Eliza's algorithm to each one in a sequential order
         for line in human_script:
