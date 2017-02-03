@@ -11,6 +11,7 @@
 import re # regular expressions
 import random
 import argparse # command line arguments
+from collections import deque
 
 # set optional argument for "terminal-mode"
 # this flag determines whether user input is read from a file or from stdin
@@ -36,7 +37,7 @@ reflections = {
     "you'll": "I will",
     "your": "my",
     "yours": "mine",
-    "you": "me",
+    "you": "i", # swap for me instead?
     "me": "you"
 }
 
@@ -231,7 +232,7 @@ psychobabble = {
     r'quit':
         ["Thank you for talking with me.",
          "Good-bye.",
-         "Thank you, that will be $1000. Have a good day!"],
+         "Thank you, that will be $652. Have a good day!"],
 
     r'(.*)':
         ["Please tell me more.",
@@ -254,46 +255,70 @@ psychobabble = {
 
 # TODO: a matched pattern should randomly select a response; reduce repition of psychobabble
 
+# initialize the global memory queue that stores keywords with rank>0 for later use
+memory_queue = deque()
+
+quit_strings = [
+    "Thank you for talking with me.",
+    "Good-bye.",
+    "Thank you, that will be $652. Have a good day!"]
+
+generic_responses = [
+    "Please tell me more.",
+    "Let's change focus a bit... Tell me about your family.",
+    "Can you elaborate on that?",
+    "Why do you say that {0}?",
+    "I see.",
+    "Very interesting.",
+    "{0}.",
+    "I see. And what does that tell you?",
+    "How does that make you feel?",
+    "How do you feel when you say that?",
+    "Please go on.",
+    "Does talking about this bother you?",
+    "I'm not sure I understand you fully."]
+
 keywords = {
 
     "sorry": [0, [r'(.*)',
         ["Please don't apologise.",
         "Apologies are not necessary.",
         "I've told you that apologies are not required.",
-        "It did not bother me. Please continue."] ]],
+        "It did not bother me. Please continue."]], False],
 
-    "dreamed": [4, [r'(.*) I dreamed (.*)',
-        ["Really, {0}?",
-        "Have you ever fantasized {0} while you were awake?",
-        "Have you ever dreamed {0} before?"] ]]
+    "apologise": [0, [r'(.*)',
+        ["=sorry"]], False],
+
+    "remember": [5,
+        [r'(.*)I remember (.*)',
+            ["Do you often think of {1}?",
+            "Does thinking of {1} bring anything else to mind?",
+            "What else do you recollect?",
+            "Why do you remember {1} just now?",
+            "What in the present situation reminds you of {1}?",
+            "What is the connection between me and {1}?",
+            "What else does {1} remind you of?"]],
+
+        [r'(.*)do you remember (.*)',
+            ["Did you think I would forget {1}?",
+            "Why do you think I should recall {1} now?",
+            "What about {1}?",
+            "=what",
+            "You mentioned {1}?"]], True],
+
+    "dreamed": [5, [r'(.*)I dreamed (.*)',
+        ["Really, {1}?",
+        "Have you ever fantasized {1} while you were awake?",
+        "Have you ever dreamed {1} before?"]], False],
+
+    "my": [5, [r'(.*) my (.*)',
+        ["Let's discuss further why your {1}.",
+        "Earlier you said your {1}.",
+        "But your {1}.",
+        "Does that have anything to do with the fact that your {1}?"]], True],
+
 }
 
-# select out keywords from the input string and build up a keystack where the
-# current highest ranking keyword is at the top
-def build_keystack(statement):
-    tokens = statement.lower().split()
-    keystack = []
-    for i, token in enumerate(tokens):
-        if token in keywords:
-            if not keystack: # no keys yet, so simply add it in
-                keystack = [keywords[token]]
-            elif keywords[token][0] > keystack[-1][0]: # add higher rank key to the top of the stack
-                keystack.extend([keywords[token]])
-            else: # add low ranking key to bottom of stack
-                keystack.insert(0, keywords[token])
-
-    return keystack
-
-def resolve_regex(keystack):
-    for value in keystack:
-        print "value:", value
-
-    return "end resolve"
-    #return response.format(*[reflect(g) for g in match.groups()])
-
-def transform(statement):
-    keystack = build_keystack(statement)
-    return resolve_regex(keystack)
 
 # take a fragment of text and reflect it back such that each token that matches
 # a key in the reflections array is replaced with its corresponding value
@@ -303,6 +328,75 @@ def reflect(fragment):
         if token in reflections:
             tokens[i] = reflections[token]
     return ' '.join(tokens)
+
+
+# select out keywords from the input string and build up a keystack such that
+# the highest ranking keyword is at the top
+def build_keystack(statement):
+    tokens = statement.lower().split()
+    keystack = []
+    for i, token in enumerate(tokens):
+        key_rank = token[0]
+        if token in keywords:
+            if not keystack: # no keys yet, so simply add it in
+                keystack = [keywords[token]]
+            elif key_rank > keystack[-1][0]: # add higher rank key to the top of the stack (end of list)
+                keystack.extend([keywords[token]])
+            else: # add low ranking key to bottom of stack (beginning of list)
+                keystack.insert(0, keywords[token])
+
+    return keystack
+
+
+def transform(statement):
+    keystack = build_keystack(statement)
+
+    # initial iteration over matched_keys to determine how many matches have occurred
+
+    # keep track of the number of additions to memory for the current transformation
+    # to prevent stored responses being used immediately
+    num_mem_additions = 0
+
+    for matched_key in reversed(keystack):
+        # for each matched key, we loop through all regex to find a match!
+        for i in range(1, len(matched_key)-1):
+            # parse out key contents of current regular expression
+            key_regex = matched_key[i][0]
+            key_responses = matched_key[i][1]
+
+            match = re.match(key_regex, statement.rstrip(".!"))
+            if match:
+                # for this regex match, randomly select a response
+                response = random.choice(key_responses)
+
+                # selected response refers to another keyword
+                if "=" in response:
+                    # parse out a random response from the "pointed-to" keyword
+                    related_keyword = keywords[response[1:]]
+                    new_responses = related_keyword[1][1]
+                    response = random.choice(new_responses)
+
+                # reflect response back by swapping first person for second person & vice-versa
+                reflected_response = response.format(*[reflect(g) for g in match.groups()])
+
+                # add the key to memory if the MEMORY flag is set
+                if matched_key[2] == True:
+                    memory_queue.append(reflected_response)
+                    num_mem_additions += 1
+                    continue # store the response in memory & select a new keyword from the keystack
+
+                return reflected_response
+
+    # if we have made it here, no keyword in the statement contains a matching regex for transformation.
+    # We will randomly decide to select a response
+    #    -from memory (if one exists), or,
+    #    -by generating a content-free response
+    if memory_queue and len(memory_queue)>num_mem_additions and random.random()>0.5:
+        response = memory_queue.popleft() # select the oldest response out of memory
+    else: # generate a content-free remark!
+        response = random.choice(generic_responses).format(*[reflect(statement)])
+
+    return response
 
 
 def analyze(statement):
@@ -320,23 +414,29 @@ def main():
     if TERM_MODE: # enter an infinite loop for accepting user input from stdin
         while True:
             statement = raw_input("> ")
-            print transform(statement)
-            #print analyze(statement)
 
             # user input "quit" terminates the chatbot
             if statement == "quit":
+                print random.choice(quit_strings)
                 break
+
+            # apply a transformation to the input string
+            print transform(statement)
+
     else: # parse user input from file
         human_script = open('human_script.txt', 'r')
 
-        # read the file one line at a time, applying Eliza's algorithm to each one in a sequential order
+        # read the file one line at a time, applying the transformation algorithm to each one in a sequential order
         for line in human_script:
             print ">", line.strip() # strip new line character
-            print analyze(line)
 
             # a line with the string "quit" terminates the chatbot
             if line == "quit":
+                print random.choice(quit_strings)
                 break
+
+            # apply a transformation to the input line
+            print transform(line)
 
         human_script.close()
 
