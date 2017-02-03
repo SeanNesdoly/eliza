@@ -254,21 +254,46 @@ psychobabble = {
 
 # TODO: a matched pattern should randomly select a response; reduce repition of psychobabble
 
-keywords = {"dog": [r'I\'?m (.*)', 'bud'], "chill": ['sex']}
+keywords = {
 
-# select keywords from the input string and build up a list of RegEx that are
-# associated with the matched keywords
-def match_keywords(statement):
+    "sorry": [0, [r'(.*)',
+        ["Please don't apologise.",
+        "Apologies are not necessary.",
+        "I've told you that apologies are not required.",
+        "It did not bother me. Please continue."] ]],
+
+    "dreamed": [4, [r'(.*) I dreamed (.*)',
+        ["Really, {0}?",
+        "Have you ever fantasized {0} while you were awake?",
+        "Have you ever dreamed {0} before?"] ]]
+}
+
+# select out keywords from the input string and build up a keystack where the
+# current highest ranking keyword is at the top
+def build_keystack(statement):
     tokens = statement.lower().split()
-    matched_regex = []
+    keystack = []
     for i, token in enumerate(tokens):
         if token in keywords:
-            matched_regex.extend(keywords[token])
+            if not keystack: # no keys yet, so simply add it in
+                keystack = [keywords[token]]
+            elif keywords[token][0] > keystack[-1][0]: # add higher rank key to the top of the stack
+                keystack.extend([keywords[token]])
+            else: # add low ranking key to bottom of stack
+                keystack.insert(0, keywords[token])
 
-    for i in matched_regex:
-        print i in psychobabble
-    return matched_regex
+    return keystack
 
+def resolve_regex(keystack):
+    for value in keystack:
+        print "value:", value
+
+    return "end resolve"
+    #return response.format(*[reflect(g) for g in match.groups()])
+
+def transform(statement):
+    keystack = build_keystack(statement)
+    return resolve_regex(keystack)
 
 # take a fragment of text and reflect it back such that each token that matches
 # a key in the reflections array is replaced with its corresponding value
@@ -284,6 +309,7 @@ def analyze(statement):
     for pattern, responses in psychobabble.items():
         match = re.match(pattern, statement.rstrip(".!"))
         if match:
+            print pattern
             response = random.choice(responses)
             return response.format(*[reflect(g) for g in match.groups()])
 
@@ -294,8 +320,8 @@ def main():
     if TERM_MODE: # enter an infinite loop for accepting user input from stdin
         while True:
             statement = raw_input("> ")
-            print match_keywords(statement)
-            print analyze(statement)
+            print transform(statement)
+            #print analyze(statement)
 
             # user input "quit" terminates the chatbot
             if statement == "quit":
