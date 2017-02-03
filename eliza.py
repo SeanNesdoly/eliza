@@ -6,6 +6,19 @@
 # February 1st, 2017
 
 import re # regular expressions
+import random
+import argparse
+
+# set optional argument for "terminal-mode"
+# this flag determines whether user input is read from a file or from stdin
+TERM_MODE = False
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--terminal", help="chatbot accepts user input from stdin (instead of a file)", action="store_true")
+args = parser.parse_args()
+if args.terminal:
+    print "terminal-mode turned on"
+    TERM_MODE = True
 
 reflections = {
     "am": "are",
@@ -215,7 +228,7 @@ psychobabble = [
     [r'quit',
         ["Thank you for talking with me.",
          "Good-bye.",
-         "Thank you, that will be $150. Have a good day!"]],
+         "Thank you, that will be $1000. Have a good day!"]],
 
     [r'(.*)',
         ["Please tell me more.",
@@ -230,10 +243,16 @@ psychobabble = [
          "How do you feel when you say that?"]]
 ]
 
+# TODO: ranking: more matches within a statement ranks high; more specific matches (mother) ranks high; rank key words?
 
+# TODO: memory implementation (stack)
+
+# TODO: add & refine psychobabble responses
+
+# TODO: a matched pattern should randomly select a response; reduce repition of psychobabble
 
 # take a fragment of text and reflect it back such that each token that matches
-# a key in the reflections array is replayed with its corresponding value
+# a key in the reflections array is replaced with its corresponding value
 def reflect(fragment):
     tokens = fragment.lower().split()
     for i, token in enumerate(tokens):
@@ -241,25 +260,39 @@ def reflect(fragment):
             tokens[i] = reflections[token]
     return ' '.join(tokens)
 
+
 def analyze(statement):
-    print(statement)
     for pattern, responses in psychobabble:
         match = re.match(pattern, statement.rstrip(".!"))
         if match:
             response = random.choice(responses)
             return response.format(*[reflect(g) for g in match.groups()])
 
+
 def main():
     print "Hello. How are you feeling today?"
 
-    # enter an infinite loop for accepting user input
-    while True:
-        statement = raw_input("> ")
-        print reflect(statement)
+    if TERM_MODE: # enter an infinite loop for accepting user input from stdin
+        while True:
+            statement = raw_input("> ")
+            print analyze(statement)
 
-        # user input "quit" ends the chatbot
-        if statement == "quit":
-            break
+            # user input "quit" terminates the chatbot
+            if statement == "quit":
+                break
+    else: # parse user input from file
+        human_script = open('./human_script.txt', 'r')
+
+        # read the file one line at a time, applying Eliza's algorithm to each one in a sequential order
+        for line in human_script:
+            print ">", line.strip() # strip new line character
+            print analyze(line)
+
+            # a line with the string "quit" terminates the chatbot
+            if line == "quit":
+                break
+
+        human_script.close()
 
 if __name__ == "__main__":
     main();

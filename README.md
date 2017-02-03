@@ -28,7 +28,7 @@ When reading from a file, the Eliza chatbot will terminate when one of the follo
 
 ### Running the Eliza chatbot in terminal-mode
 
-Alternatively, the Eliza chatbot can be run in a **terminal-mode**. In this mode, user input is accepted from the standard input (**stdin**) instead of from a file. To enter this mode, enter the following commands:
+Alternatively, the Eliza chatbot can be run in a **terminal-mode**. In this mode, user input is accepted from the standard input stream (**stdin**) instead of from a file. 
 
 *To run the code on a unix environment in terminal-mode:*
 
