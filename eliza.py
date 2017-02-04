@@ -247,21 +247,11 @@ psychobabble = {
          "How do you feel when you say that?"]
 }
 
-# TODO: ranking: more matches within a statement ranks high; more specific matches (mother) ranks high; rank key words?
-
-# TODO: memory implementation (stack)
-
-# TODO: add & refine psychobabble responses
-
-# TODO: a matched pattern should randomly select a response; reduce repition of psychobabble
-
-# initialize the global memory queue that stores keywords with rank>0 for later use
-memory_queue = deque()
-
 quit_strings = [
     "Thank you for talking with me.",
     "Good-bye.",
-    "Thank you, that will be $652. Have a good day!"]
+    "Thank you, that will be ${0}. Have a good day!".format(random.randint(1,10000)),
+    "Until next time!"]
 
 generic_responses = [
     "Please tell me more.",
@@ -294,31 +284,105 @@ keywords = {
             ["Do you often think of {1}?",
             "Does thinking of {1} bring anything else to mind?",
             "What else do you recollect?",
-            "Why do you remember {1} just now?",
+            "Why do you remember {1}?",
             "What in the present situation reminds you of {1}?",
             "What is the connection between me and {1}?",
             "What else does {1} remind you of?"]],
 
         [r'(.*)do you remember (.*)',
             ["Did you think I would forget {1}?",
-            "Why do you think I should recall {1} now?",
+            "Why did you think I should recall {1}?",
             "What about {1}?",
-            "=what",
+            "I am thinking back. What about {1} should I remember?",
             "You mentioned {1}?"]], True],
+
+    "forget": [5,
+        [r'(.*) I forget (.*)',
+            ["Can you think of why you might forget {1}?",
+            "Why can't you remember {1}?",
+            "How often do you think of {1}?",
+            "Does it bother you to forget that?",
+            "Could it be a mental block?",
+            "Are you generally forgetful?",
+            "Do you think you are suppressing {1}?"]],
+        [r'(.*) did you forget (.*)',
+            ["Why do you ask?",
+            "Are you sure you told me?",
+            "Would it bother you if I forgot {1}?",
+            "Why should I recall {1} just now?",
+            "Tell me more about {1}."]], False],
 
     "dreamed": [5, [r'(.*)I dreamed (.*)',
         ["Really, {1}?",
         "Have you ever fantasized {1} while you were awake?",
         "Have you ever dreamed {1} before?"]], False],
 
+    "computer": [10,
+        [r'(.*)',
+            ["Do computers worry you?",
+            "Why do you mention computers?",
+            "What do you think machines have to do with your problem?",
+            "Don't you think computers can help people?",
+            "What about machines worries you?",
+            "What do you think about machines?",
+            "You don't think I am a computer program, do you?"]], False],
+
+    "computers": [10,
+        [r'(.*)',
+            ["=computer"]], False],
+
+    "perhaps": [0,
+        [r'(.*)',
+            ["You don't seem quite certain.",
+            "Why the uncertain tone?",
+            "Can't you be more positive?",
+            "You aren't sure?",
+            "Don't you know?",
+            "How likely, would you estimate?"]], False],
+
+    "your": [0,
+        [r'(.*) your (.*)',
+            ["Why are you concerned over my {1}?",
+            "What about your own {1}?",
+            "Are you worried about someone else's {1}?",
+            "Really, my {1}?",
+            "What makes you think of my {1}?",
+            "Do you want my {1}?"]], False],
+
+    "are": [0,
+        [r'(.*) are you (.*)',
+            ["Why are you interested in whether I am {1} or not?",
+            "Would you prefer if I weren't {1}?",
+            "Perhaps I am {1} in your fantasies.",
+            "Do you sometimes think I am {1}?",
+            "goto what",
+            "Would it matter to you?",
+            "What if I were {1}?"]], False],
+
+    "hello": [0,
+        [r'(.*)',
+            ["Hi there.",
+            "Hello there.",
+            "Why hello there.",
+            "Greetings human.",
+            "Why hello there, how do you do!",
+            "Salutations, human.",
+            "Have we not already introduced ourselves?"]], False],
+
+    "hi": [0,
+        [r'(.*)',
+            ["=hello"]], False],
+
     "my": [5, [r'(.*) my (.*)',
         ["Let's discuss further why your {1}.",
         "Earlier you said your {1}.",
         "But your {1}.",
-        "Does that have anything to do with the fact that your {1}?"]], True],
+        "Does that have anything to do with the fact that your {1}?"]], True]
 
 }
 
+# initialize the global memory queue that stores keywords with rank>0 for later use
+memory_queue = deque()
 
 # take a fragment of text and reflect it back such that each token that matches
 # a key in the reflections array is replaced with its corresponding value
@@ -333,7 +397,9 @@ def reflect(fragment):
 # select out keywords from the input string and build up a keystack such that
 # the highest ranking keyword is at the top
 def build_keystack(statement):
-    tokens = statement.lower().split()
+    # remove any punctuation at the end of the string, lowercase, split by spaces
+    tokens = statement.rstrip('.!?').lower().split()
+
     keystack = []
     for i, token in enumerate(tokens):
         key_rank = token[0]
@@ -347,11 +413,15 @@ def build_keystack(statement):
 
     return keystack
 
-
+# Transform the statement given into a response that is reflected back to the user.
+# The algorithm implemented supports the following features:
+#   -selection of the highest ranking key word
+#   -find the optimal regular expression match that gives precedence to ReGex associated with high ranking keywords
+#   -if no keywords can be found or no regular expression matches, a memory capability exists that can pull on the
+#    user's previous input statements
+#   -keywords may contain regular expressions that point to the reassembly rules of another keyword
 def transform(statement):
-    keystack = build_keystack(statement)
-
-    # initial iteration over matched_keys to determine how many matches have occurred
+    keystack = build_keystack(statement.rstrip(".!"))
 
     # keep track of the number of additions to memory for the current transformation
     # to prevent stored responses being used immediately
@@ -399,15 +469,6 @@ def transform(statement):
     return response
 
 
-def analyze(statement):
-    for pattern, responses in psychobabble.items():
-        match = re.match(pattern, statement.rstrip(".!"))
-        if match:
-            print pattern
-            response = random.choice(responses)
-            return response.format(*[reflect(g) for g in match.groups()])
-
-
 def main():
     print "Hello. How are you feeling today?"
 
@@ -431,12 +492,11 @@ def main():
             print ">", line.strip() # strip new line character
 
             # a line with the string "quit" terminates the chatbot
-            if line == "quit":
+            if line.strip() == "quit":
                 print random.choice(quit_strings)
                 break
-
-            # apply a transformation to the input line
-            print transform(line)
+            else: # apply a transformation to the input line
+                print transform(line.strip())
 
         human_script.close()
 
