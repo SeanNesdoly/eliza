@@ -5,7 +5,7 @@
 # on the input string.
 #
 # CISC 352 Assignment 1
-# Sean Nesdoly 10135490
+# Sean Nesdoly 
 # February 1st, 2017
 
 import re # regular expressions
