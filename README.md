@@ -1,9 +1,8 @@
 # Eliza Chatbot README
-
->Assignment 1
->CISC 352: Artificial Intelligence
->Sean Nesdoly 10135490
->January 29th, 2017
+>Assignment 1  
+>CISC 352: Artificial Intelligence  
+>Sean Nesdoly  
+>January 29th, 2017  
 
 I implemented the assignment using **Python 2.7.8**.  As such, ensure that python is installed correctly and that the path to the python executable is contained within the system PATH variable.
 
@@ -21,6 +20,7 @@ python eliza.py
 Eliza will read the input phrases from the **human_script.txt** file line-by-line in a sequential order. For every line, Eliza will read, process and transform the string into a response to the user that is written to the standard output stream, along with its associated human input phrase (from file).
 
 When reading from a file, the Eliza chatbot will terminate when one of the following conditions is true:
+
 1. the string "**quit**" is given as a line in the **human_script.txt** file, or,
 2. all lines in **human_script.txt** have been parsed
 
