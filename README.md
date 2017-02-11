@@ -1,4 +1,4 @@
-# Eliza Chatbot README
+# Eliza Chatbot
 >Assignment 1  
 >CISC 352: Artificial Intelligence  
 >Sean Nesdoly  
